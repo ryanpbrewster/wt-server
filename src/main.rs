@@ -20,12 +20,7 @@ fn main() {
 
         let mut session: *mut wt_raw::WT_SESSION = std::mem::zeroed();
         let open_session = (*conn).open_session.expect("open_session");
-        open_session(
-            conn,
-            std::ptr::null_mut(),
-            std::ptr::null(),
-            &mut session,
-        );
+        open_session(conn, std::ptr::null_mut(), std::ptr::null(), &mut session);
 
         let create = (*session).create.expect("create");
         let name = CString::new("table:access").expect("name");
@@ -52,6 +47,29 @@ fn main() {
 
         let insert = (*cursor).insert.expect("insert");
         insert(cursor);
+
+        let reset = (*cursor).reset.expect("reset"); /* Restart the scan. */
+        reset(cursor);
+
+        loop {
+            let next = (*cursor).next.expect("next");
+            let ret = next(cursor);
+            if ret != 0 {
+                break;
+            }
+
+            let get_key = (*cursor).get_key.expect("get_key");
+            let mut k: *mut i8 = std::mem::zeroed();
+            get_key(cursor, &mut k);
+
+            let get_value = (*cursor).get_value.expect("get_value");
+            let mut v: *mut i8 = std::mem::zeroed();
+            get_value(cursor, &mut v);
+
+            println!("({:?}, {:?})", CString::from_raw(k), CString::from_raw(v));
+        }
+        let close = (*conn).close.expect("close");
+        close(conn, std::ptr::null());
     };
     println!("done");
 }
