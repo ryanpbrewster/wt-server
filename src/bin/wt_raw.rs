@@ -1,6 +1,8 @@
 extern crate wt_rs;
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
+use std::time::SystemTime;
 
 use wt_rs::wt_raw;
 
@@ -12,9 +14,9 @@ fn main() {
 
         let mut conn: *mut wt_raw::WT_CONNECTION = std::mem::zeroed();
         wt_raw::wiredtiger_open(
-            location.as_ptr() as *const i8,
+            location.as_ptr(),
             std::ptr::null_mut(),
-            action.as_ptr() as *const i8,
+            action.as_ptr(),
             &mut conn,
         );
 
@@ -25,19 +27,22 @@ fn main() {
         let create = (*session).create.expect("create");
         let name = CString::new("table:access").expect("name");
         let config = CString::new("key_format=S,value_format=S").expect("config");
-        create(session, name.as_ptr() as *const i8, config.as_ptr()) as *const i8;
+        create(session, name.as_ptr(), config.as_ptr());
 
         let mut cursor: *mut wt_raw::WT_CURSOR = std::mem::zeroed();
         let open_cursor = (*session).open_cursor.expect("open_cursor");
         open_cursor(
             session,
-            name.as_ptr() as *const i8,
+            name.as_ptr(),
             std::ptr::null_mut(),
             std::ptr::null(),
             &mut cursor,
         );
 
-        let key = CString::new("rpb").expect("key");
+        let key = CString::new(format!(
+            "rpb-{}",
+            SystemTime::UNIX_EPOCH.elapsed().unwrap().as_secs()
+        )).expect("key");
         let set_key = (*cursor).set_key.expect("set_key");
         set_key(cursor, key.as_ptr());
 
@@ -66,58 +71,14 @@ fn main() {
             let mut v: *mut i8 = std::mem::zeroed();
             get_value(cursor, &mut v);
 
-            println!("({:?}, {:?})", CString::from_raw(k), CString::from_raw(v));
+            let kstr = std::str::from_utf8(CStr::from_ptr(k as *const c_char).to_bytes())
+                .expect("utf8-key");
+            let vstr = std::str::from_utf8(CStr::from_ptr(v as *const c_char).to_bytes())
+                .expect("utf8-value");
+            println!("({:?}, {:?})", kstr, vstr);
         }
         let close = (*conn).close.expect("close");
         close(conn, std::ptr::null());
     };
     println!("done");
 }
-
-/*
-#include <iostream>
-#include "wiredtiger.h"
-
-static const char *home;
-
-static void
-access_example(void)
-{
-        WT_CONNECTION *conn;
-        WT_CURSOR *cursor;
-        WT_SESSION *session;
-        const char *key, *value;
-        int ret;
-        /* Open a connection to the database, creating it if necessary. */
-        (wiredtiger_open(home, NULL, "create", &conn));
-        /* Open a session handle for the database. */
-        (conn->open_session(conn, NULL, NULL, &session));
-        (session->create(
-            session, "table:access", "key_format=S,value_format=S"));
-        (session->open_cursor(
-            session, "table:access", NULL, NULL, &cursor));
-
-        for (int i=0; i < 100000; i++) {
-          std::string k = "key-" + std::to_string(i);
-          std::string v = "value-" + std::to_string(i * i);
-          cursor->set_key(cursor, k.data());        /* Insert a record. */
-          cursor->set_value(cursor, v.data());
-          cursor->insert(cursor);
-        }
-        cursor->reset(cursor);     /* Restart the scan. */
-        while ((ret = cursor->next(cursor)) == 0) {
-                (cursor->get_key(cursor, &key));
-                (cursor->get_value(cursor, &value));
-                std::cout << "Got record: " << key << " = " << value << std::endl;
-        }
-        (conn->close(conn, NULL));   /* Close all handles. */
-}
-int
-main(int argc, char *argv[])
-{
-        home = argv[1];
-        printf("home = %s\n", home);
-        access_example();
-        return 0;
-}
-*/
