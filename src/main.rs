@@ -7,40 +7,51 @@ use wt_rs::wt_raw;
 fn main() {
     println!("Hello, World!");
     unsafe {
-        let location = CString::new("data").unwrap();
-        let action = CString::new("create").unwrap();
+        let location = CString::new("data").expect("data");
+        let action = CString::new("create").expect("create");
 
-        let mut conn: wt_raw::WT_CONNECTION = std::mem::zeroed();
+        let mut conn: *mut wt_raw::WT_CONNECTION = std::mem::zeroed();
         wt_raw::wiredtiger_open(
             location.as_ptr() as *const i8,
             std::ptr::null_mut(),
             action.as_ptr() as *const i8,
-            &mut (&mut conn as *mut wt_raw::WT_CONNECTION),
+            &mut conn,
         );
 
-        let mut session: wt_raw::WT_SESSION = std::mem::zeroed();
-        let open_session = conn.open_session.unwrap();
+        let mut session: *mut wt_raw::WT_SESSION = std::mem::zeroed();
+        let open_session = (*conn).open_session.expect("open_session");
         open_session(
-            &mut conn,
+            conn,
             std::ptr::null_mut(),
             std::ptr::null(),
-            &mut (&mut session as *mut wt_raw::WT_SESSION),
+            &mut session,
         );
 
-        let create = session.create.unwrap();
-        let name = CString::new("table:access").unwrap();
-        let config = CString::new("key_format=S,value_format=S").unwrap();
-        create(&mut session, name.as_ptr() as *const i8, config.as_ptr()) as *const i8;
+        let create = (*session).create.expect("create");
+        let name = CString::new("table:access").expect("name");
+        let config = CString::new("key_format=S,value_format=S").expect("config");
+        create(session, name.as_ptr() as *const i8, config.as_ptr()) as *const i8;
 
-        let mut cursor: wt_raw::WT_CURSOR = std::mem::zeroed();
-        let open_cursor = session.open_cursor.unwrap();
+        let mut cursor: *mut wt_raw::WT_CURSOR = std::mem::zeroed();
+        let open_cursor = (*session).open_cursor.expect("open_cursor");
         open_cursor(
-            &mut session,
+            session,
             name.as_ptr() as *const i8,
             std::ptr::null_mut(),
             std::ptr::null(),
-            &mut (&mut cursor as *mut wt_raw::WT_CURSOR),
+            &mut cursor,
         );
+
+        let key = CString::new("rpb").expect("key");
+        let set_key = (*cursor).set_key.expect("set_key");
+        set_key(cursor, key.as_ptr());
+
+        let value = CString::new("foo bar baz").expect("value");
+        let set_value = (*cursor).set_value.expect("set_value");
+        set_value(cursor, value.as_ptr());
+
+        let insert = (*cursor).insert.expect("insert");
+        insert(cursor);
     };
     println!("done");
 }
