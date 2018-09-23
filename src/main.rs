@@ -1,19 +1,31 @@
 extern crate wt_rs;
 
+use std::ffi::CString;
+
 use wt_rs::wt_raw;
 
 fn main() {
     println!("Hello, World!");
-    let c = unsafe {
+    unsafe {
+        let location = CString::new("data").unwrap();
+        let action = CString::new("create").unwrap();
+
         let mut conn: wt_raw::WT_CONNECTION = std::mem::zeroed();
-        let mut tmp: *mut wt_raw::__wt_connection = &mut conn as *mut wt_raw::__wt_connection;
-        let mut handler: wt_raw::__wt_event_handler = std::mem::zeroed();
         wt_raw::wiredtiger_open(
-            "data".as_ptr() as *const i8,
-            &mut handler,
-            "create\0".as_ptr() as *const i8,
-            &mut tmp as *mut *mut wt_raw::__wt_connection,
-        )
+            location.as_ptr() as *const i8,
+            std::ptr::null_mut(),
+            action.as_ptr() as *const i8,
+            &mut (&mut conn as *mut wt_raw::WT_CONNECTION),
+        );
+
+        let mut session: wt_raw::WT_SESSION = std::mem::zeroed();
+        let open_session = conn.open_session.unwrap();
+        open_session(
+            &mut conn,
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            &mut (&mut session as *mut wt_raw::WT_SESSION),
+        );
     };
     println!("done");
 }
