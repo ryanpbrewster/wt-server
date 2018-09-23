@@ -39,14 +39,12 @@ fn main() {
             &mut cursor,
         );
 
-        let key = CString::new(format!(
-            "rpb-{}",
-            SystemTime::UNIX_EPOCH.elapsed().unwrap().as_secs()
-        )).expect("key");
+        let t = SystemTime::UNIX_EPOCH.elapsed().unwrap().as_secs() % 10_000;
+        let key = CString::new(format!("rpb-{}", t)).expect("key");
         let set_key = (*cursor).set_key.expect("set_key");
         set_key(cursor, key.as_ptr());
 
-        let value = CString::new("foo bar baz").expect("value");
+        let value = CString::new(format!("rpb-{}", t * t)).expect("value");
         let set_value = (*cursor).set_value.expect("set_value");
         set_value(cursor, value.as_ptr());
 
@@ -56,10 +54,9 @@ fn main() {
         let reset = (*cursor).reset.expect("reset"); /* Restart the scan. */
         reset(cursor);
 
+        let next = (*cursor).next.expect("next");
         loop {
-            let next = (*cursor).next.expect("next");
-            let ret = next(cursor);
-            if ret != 0 {
+            if next(cursor) != 0 {
                 break;
             }
 
