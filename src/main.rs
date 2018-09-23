@@ -26,6 +26,21 @@ fn main() {
             std::ptr::null(),
             &mut (&mut session as *mut wt_raw::WT_SESSION),
         );
+
+        let create = session.create.unwrap();
+        let name = CString::new("table:access").unwrap();
+        let config = CString::new("key_format=S,value_format=S").unwrap();
+        create(&mut session, name.as_ptr() as *const i8, config.as_ptr()) as *const i8;
+
+        let mut cursor: wt_raw::WT_CURSOR = std::mem::zeroed();
+        let open_cursor = session.open_cursor.unwrap();
+        open_cursor(
+            &mut session,
+            name.as_ptr() as *const i8,
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            &mut (&mut cursor as *mut wt_raw::WT_CURSOR),
+        );
     };
     println!("done");
 }
