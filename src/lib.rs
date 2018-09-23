@@ -1,5 +1,5 @@
 /// All the raw bindgen output.
-mod wt_raw {
+pub mod wt_raw {
     #![allow(dead_code)]
     #![allow(non_camel_case_types)]
     #![allow(non_snake_case)]
