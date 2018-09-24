@@ -27,12 +27,17 @@ pub mod wt {
     }
 
     impl Connection {
-        pub fn open(path: &str) -> Result<Connection, String> {
-            let action = CString::new("create").expect("make CString");
-            let path = CString::new(path).expect("make CString");
+        pub fn open(home: &str) -> Result<Connection, String> {
+            let config = CString::new("create").expect("make CString");
+            let home = CString::new(home).expect("make CString");
             unsafe {
                 let mut raw: *mut wt_raw::WT_CONNECTION = mem::uninitialized();
-                wt_raw::wiredtiger_open(path.as_ptr(), ptr::null_mut(), action.as_ptr(), &mut raw);
+                wt_raw::wiredtiger_open(
+                    home.as_ptr(),
+                    /* event_handler = */ ptr::null_mut(),
+                    config.as_ptr(),
+                    &mut raw,
+                );
                 Ok(Connection { raw })
             }
         }
@@ -42,7 +47,7 @@ pub mod wt {
         fn drop(&mut self) {
             unsafe {
                 let close = (*self.raw).close.expect("connection.close method");
-                close(self.raw, ptr::null_mut());
+                close(self.raw, /* config = */ ptr::null_mut());
             }
         }
     }
@@ -50,9 +55,14 @@ pub mod wt {
     impl Session {
         pub fn open(conn: &mut Connection) -> Result<Session, String> {
             unsafe {
-                let mut raw: *mut wt_raw::WT_SESSION = mem::zeroed();
+                let mut raw: *mut wt_raw::WT_SESSION = mem::uninitialized();
                 let open_session = (*conn.raw).open_session.expect("connection.open_session");
-                open_session(conn.raw, ptr::null_mut(), ptr::null(), &mut raw);
+                open_session(
+                    conn.raw,
+                    /* event_handler = */ ptr::null_mut(),
+                    /* config = */ ptr::null(),
+                    &mut raw,
+                );
                 Ok(Session { raw })
             }
         }
@@ -68,17 +78,26 @@ pub mod wt {
         }
     }
 
+    impl Drop for Session {
+        fn drop(&mut self) {
+            unsafe {
+                let close = (*self.raw).close.expect("session.close");
+                close(self.raw, /* config = */ ptr::null_mut());
+            }
+        }
+    }
+
     impl Cursor {
         pub fn open(session: &mut Session, table_name: &str) -> Result<Cursor, String> {
             unsafe {
-                let mut raw: *mut wt_raw::WT_CURSOR = mem::zeroed();
+                let mut raw: *mut wt_raw::WT_CURSOR = mem::uninitialized();
                 let open_cursor = (*session.raw).open_cursor.expect("session.open_cursor");
                 let name = CString::new(format!("table:{}", table_name)).expect("make CString");
                 open_cursor(
                     session.raw,
                     name.as_ptr(),
-                    ptr::null_mut(),
-                    ptr::null(),
+                    /* to_dup = */ ptr::null_mut(),
+                    /* config = */ ptr::null(),
                     &mut raw,
                 );
                 Ok(Cursor { raw })
@@ -119,11 +138,11 @@ pub mod wt {
         pub fn get(&mut self) -> Result<(String, String), String> {
             unsafe {
                 let get_key = (*self.raw).get_key.expect("cursor.get_key");
-                let mut k: *mut i8 = std::mem::zeroed();
+                let mut k: *mut i8 = mem::uninitialized();
                 get_key(self.raw, &mut k);
 
                 let get_value = (*self.raw).get_value.expect("cursor.get_value");
-                let mut v: *mut i8 = std::mem::zeroed();
+                let mut v: *mut i8 = mem::uninitialized();
                 get_value(self.raw, &mut v);
 
                 let kstr =
@@ -133,6 +152,15 @@ pub mod wt {
                     String::from_utf8(CStr::from_ptr(v as *const c_char).to_bytes().to_vec())
                         .expect("utf8-value");
                 Ok((kstr, vstr))
+            }
+        }
+    }
+
+    impl Drop for Cursor {
+        fn drop(&mut self) {
+            unsafe {
+                let close = (*self.raw).close.expect("cursor.close");
+                close(self.raw);
             }
         }
     }
