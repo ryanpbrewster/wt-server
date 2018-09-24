@@ -126,6 +126,21 @@ impl Cursor {
         }
     }
 
+    pub fn search(&mut self, key: &str) -> Result<(), String> {
+        unsafe {
+            let key = CString::new(key).expect("make CString");
+            let set_key = (*self.raw).set_key.expect("cursor.set_key");
+            set_key(self.raw, key.as_ptr());
+
+            let search = (*self.raw).search.expect("cursor.search");
+            let code = search(self.raw);
+            if code != 0 {
+                return Err(format!("non-zero code for cursor.search: {}", code))
+            };
+            Ok(())
+        }
+    }
+
     pub fn get(&mut self) -> Result<(String, String), String> {
         unsafe {
             let get_key = (*self.raw).get_key.expect("cursor.get_key");

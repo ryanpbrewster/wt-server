@@ -37,12 +37,17 @@ impl KvService for KvServiceImpl {
         let mut session = wt::Session::open(&mut db).expect("open session");
         session.create_table("kv").expect("create table");
         let mut cursor = wt::Cursor::open(&mut session, "kv").expect("open cursor");
-        let res = cursor.advance().expect("advance cursor");
-        println!("cursor advanced into place: {:?}", res);
         let mut resp = GetResponse::new();
-        let (k, v) = cursor.get().expect("read cursor");
-        resp.set_key(k);
-        resp.set_value(v);
+        match cursor.search(req.get_key()) {
+            Ok(()) => {
+                let (k, v) = cursor.get().expect("read cursor");
+                resp.set_key(k);
+                resp.set_value(v);
+            },
+            Err(_) => {
+                println!("element not found");
+            }
+        };
         let f = sink
             .success(resp)
             .map_err(move |e| println!("failed to reply {:?}: {:?}", req, e));
