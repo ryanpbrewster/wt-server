@@ -1,4 +1,5 @@
 extern crate bindgen;
+extern crate protoc_grpcio;
 
 use std::env;
 use std::path::PathBuf;
@@ -26,4 +27,10 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
+
+    // Compile protobuf service
+    let proto_root = "src/proto";
+    println!("cargo:rerun-if-changed={}", proto_root);
+    protoc_grpcio::compile_grpc_protos(&["echo.proto"], &[proto_root], &proto_root)
+        .expect("Failed to compile gRPC definitions!");
 }

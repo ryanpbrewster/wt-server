@@ -9,3 +9,8 @@ pub mod wt_raw {
 
 /// A more typesafe interface.
 pub mod wt;
+
+pub mod proto {
+    pub mod echo;
+    pub mod echo_grpc;
+}
