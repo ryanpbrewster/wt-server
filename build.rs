@@ -5,12 +5,17 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
+    // Compile protobuf service
+    let proto_root = "src/proto";
+    println!("cargo:rerun-if-changed={}", proto_root);
+    protoc_grpcio::compile_grpc_protos(&["echo.proto"], &[proto_root], &proto_root)
+        .expect("Failed to compile gRPC definitions!");
     // Look for libraries in the lib/ directory
     println!("cargo:rustc-link-search=./lib");
 
     // Link libc++ (a macOS thing) and libwiredtiger
-    println!("cargo:rustc-link-lib=c++");
     println!("cargo:rustc-link-lib=wiredtiger");
+    println!("cargo:rustc-link-lib=c++");
 
     let bindings = bindgen::Builder::default()
         // Do not generate comments. They are invalid and cause compilation errors.
@@ -27,10 +32,4 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
-
-    // Compile protobuf service
-    let proto_root = "src/proto";
-    println!("cargo:rerun-if-changed={}", proto_root);
-    protoc_grpcio::compile_grpc_protos(&["echo.proto"], &[proto_root], &proto_root)
-        .expect("Failed to compile gRPC definitions!");
 }
