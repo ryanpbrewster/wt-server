@@ -20,6 +20,11 @@ struct KvServiceImpl {
 impl KvService for KvServiceImpl {
     fn put(&self, ctx: RpcContext, req: PutRequest, sink: UnarySink<PutResponse>) {
         println!("putting: {}={}", req.get_key(), req.get_value());
+        let mut db = self.db.lock().expect("lock db");
+        let mut session = wt::Session::open(&mut db).expect("open session");
+        session.create_table("kv").expect("create table");
+        let mut cursor = wt::Cursor::open(&mut session, "kv").expect("open cursor");
+        cursor.put(req.get_key(), req.get_value()).expect("put kv");
         let resp = PutResponse::new();
         let f = sink
             .success(resp)
@@ -28,9 +33,16 @@ impl KvService for KvServiceImpl {
     }
     fn get(&self, ctx: RpcContext, req: GetRequest, sink: UnarySink<GetResponse>) {
         println!("getting: {}", req.get_key());
+        let mut db = self.db.lock().expect("lock db");
+        let mut session = wt::Session::open(&mut db).expect("open session");
+        session.create_table("kv").expect("create table");
+        let mut cursor = wt::Cursor::open(&mut session, "kv").expect("open cursor");
+        let res = cursor.advance().expect("advance cursor");
+        println!("cursor advanced into place: {:?}", res);
         let mut resp = GetResponse::new();
-        resp.set_key(req.get_key().to_string());
-        resp.set_value(String::from("unimplemented"));
+        let (k, v) = cursor.get().expect("read cursor");
+        resp.set_key(k);
+        resp.set_value(v);
         let f = sink
             .success(resp)
             .map_err(move |e| println!("failed to reply {:?}: {:?}", req, e));
