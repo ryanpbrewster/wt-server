@@ -8,7 +8,7 @@ fn main() {
     // Compile protobuf service
     let proto_root = "src/proto";
     println!("cargo:rerun-if-changed={}", proto_root);
-    protoc_grpcio::compile_grpc_protos(&["echo.proto"], &[proto_root], &proto_root)
+    protoc_grpcio::compile_grpc_protos(&["echo.proto", "kv.proto"], &[proto_root], &proto_root)
         .expect("Failed to compile gRPC definitions!");
     // Look for libraries in the lib/ directory
     println!("cargo:rustc-link-search=./lib");

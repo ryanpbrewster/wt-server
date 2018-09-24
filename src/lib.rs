@@ -13,4 +13,7 @@ pub mod wt;
 pub mod proto {
     pub mod echo;
     pub mod echo_grpc;
+
+    pub mod kv;
+    pub mod kv_grpc;
 }

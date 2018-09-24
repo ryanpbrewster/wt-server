@@ -7,6 +7,7 @@ use std::ptr;
 pub struct Connection {
     raw: *mut wt_raw::WT_CONNECTION,
 }
+unsafe impl Send for Connection {}
 
 pub struct Session {
     raw: *mut wt_raw::WT_SESSION,
