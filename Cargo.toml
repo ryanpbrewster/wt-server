@@ -10,3 +10,11 @@ libc = "0.2"
 
 [build-dependencies]
 bindgen = "0.26"
+
+[dev-dependencies]
+criterion = "0.2"
+
+[[bench]]
+name = "wt"
+harness = false
+
