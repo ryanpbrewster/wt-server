@@ -141,6 +141,22 @@ impl Cursor {
         }
     }
 
+    pub fn search_near(&mut self, key: &str) -> Result<i32, String> {
+        unsafe {
+            let key = CString::new(key).expect("make CString");
+            let set_key = (*self.raw).set_key.expect("cursor.set_key");
+            set_key(self.raw, key.as_ptr());
+
+            let mut pos = 0;
+            let search_near = (*self.raw).search_near.expect("cursor.search_near");
+            let code = search_near(self.raw, &mut pos);
+            if code != 0 {
+                return Err(format!("non-zero code for cursor.search_near: {}", code))
+            };
+            Ok(pos)
+        }
+    }
+
     pub fn get(&mut self) -> Result<(String, String), String> {
         unsafe {
             let get_key = (*self.raw).get_key.expect("cursor.get_key");
