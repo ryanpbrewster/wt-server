@@ -135,7 +135,7 @@ impl Cursor {
             let search = (*self.raw).search.expect("cursor.search");
             let code = search(self.raw);
             if code != 0 {
-                return Err(format!("non-zero code for cursor.search: {}", code))
+                return Err(format!("non-zero code for cursor.search: {}", code));
             };
             Ok(())
         }
@@ -151,7 +151,7 @@ impl Cursor {
             let search_near = (*self.raw).search_near.expect("cursor.search_near");
             let code = search_near(self.raw, &mut pos);
             if code != 0 {
-                return Err(format!("non-zero code for cursor.search_near: {}", code))
+                return Err(format!("non-zero code for cursor.search_near: {}", code));
             };
             Ok(pos)
         }

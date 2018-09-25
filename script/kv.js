@@ -46,6 +46,7 @@ async function scan(prefix) {
 async function main() {
   await put("foo/0", "asdf");
   await put("foo/1", "pqrs");
+  await put("foo/" + Date.now(), "last");
   await put("xyz", "tuvw");
 
   let call = stub.scan({ prefix: "foo" });

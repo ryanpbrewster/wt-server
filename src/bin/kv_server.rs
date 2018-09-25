@@ -5,12 +5,12 @@ extern crate wt_rs;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use futures::{Future, Sink, Stream, IntoFuture};
 use futures::stream;
+use futures::{Future, Sink};
 
-use grpcio::{Environment, RpcContext, ServerBuilder, UnarySink, ServerStreamingSink, WriteFlags};
+use grpcio::{Environment, RpcContext, ServerBuilder, ServerStreamingSink, UnarySink, WriteFlags};
 
-use wt_rs::proto::kv::{Item, GetRequest, PutRequest, PutResponse, ScanRequest};
+use wt_rs::proto::kv::{GetRequest, Item, PutRequest, PutResponse, ScanRequest};
 use wt_rs::proto::kv_grpc::{self, KvService};
 use wt_rs::wt;
 
@@ -21,12 +21,18 @@ struct KvServiceImpl {
 
 impl KvService for KvServiceImpl {
     fn put(&self, ctx: RpcContext, req: PutRequest, sink: UnarySink<PutResponse>) {
-        println!("putting: {}={}", req.get_item().get_key(), req.get_item().get_value());
+        println!(
+            "putting: {}={}",
+            req.get_item().get_key(),
+            req.get_item().get_value()
+        );
         let mut db = self.db.lock().expect("lock db");
         let mut session = wt::Session::open(&mut db).expect("open session");
         session.create_table("kv").expect("create table");
         let mut cursor = wt::Cursor::open(&mut session, "kv").expect("open cursor");
-        cursor.put(req.get_item().get_key(), req.get_item().get_value()).expect("put kv");
+        cursor
+            .put(req.get_item().get_key(), req.get_item().get_value())
+            .expect("put kv");
         let resp = PutResponse::new();
         let f = sink
             .success(resp)
@@ -45,7 +51,7 @@ impl KvService for KvServiceImpl {
                 let (k, v) = cursor.get().expect("read cursor");
                 resp.set_key(k);
                 resp.set_value(v);
-            },
+            }
             Err(_) => {
                 println!("element not found");
             }
@@ -56,7 +62,7 @@ impl KvService for KvServiceImpl {
         ctx.spawn(f);
     }
 
-    fn scan(&self, ctx: RpcContext, req: ScanRequest, mut sink: ServerStreamingSink<Item>) {
+    fn scan(&self, ctx: RpcContext, req: ScanRequest, sink: ServerStreamingSink<Item>) {
         println!("scanning: {}", req.get_prefix());
         let mut db = self.db.lock().expect("lock db");
         let mut session = wt::Session::open(&mut db).expect("open session");
@@ -66,6 +72,7 @@ impl KvService for KvServiceImpl {
         if pos < 0 {
             cursor.advance().expect("advance cursor");
         }
+        let mut items = Vec::new();
         loop {
             let (k, v) = cursor.get().expect("read cursor");
             println!("retrieved: {} = {}", k, v);
@@ -76,15 +83,20 @@ impl KvService for KvServiceImpl {
             let mut item = Item::new();
             item.set_key(k);
             item.set_value(v);
-            sink = sink.send((item, WriteFlags::default())).wait().expect("send item");
-            println!("done sending, next item");
+            items.push((item, WriteFlags::default()));
             if let Ok(true) = cursor.advance() {
-                continue
+                continue;
             } else {
                 break;
             }
-        };
-        ctx.spawn(futures::future::ok(()));
+        }
+
+        let f = sink
+            .send_all(stream::iter_ok::<_, grpcio::Error>(items))
+            .map(|_| ())
+            .map_err(|e| println!("failed to handle scan: {:?}", e));
+
+        ctx.spawn(f);
     }
 }
 
